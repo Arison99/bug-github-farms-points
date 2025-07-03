@@ -1,0 +1,186 @@
+name: Super Farm Points
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  pages: write
+  releases: write
+
+concurrency:
+  group: super-farm-points-${{ github.repository }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  REPO: ${{ github.repository }}
+  MAIN_BRANCH: main
+  COMMIT_COUNT: 6
+  ISSUE_COUNT: 1
+  PR_PER_RUN: 1
+  USER_NAME: UserName
+  USER_EMAIL: UserName@users.noreply.github.com
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # ogni ora allo scoccare del minuto 00
+  workflow_dispatch:
+
+jobs:
+  farm-commits:
+    runs-on: ubuntu-latest
+    outputs:
+      pr-branch: ${{ steps.set-branch.outputs.branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true
+
+      - name: Configura autore Git
+        run: |
+          git config user.name "${{ env.USER_NAME }}"
+          git config user.email "${{ env.USER_EMAIL }}"
+
+      - name: Genera ${{ env.COMMIT_COUNT }} commit rapidi
+        run: |
+          FILE="ita/test.txt"
+          TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          for i in $(seq 1 ${{ env.COMMIT_COUNT }}); do
+            echo "[farm-$i] $TS" > "$FILE"
+            git add "$FILE"
+            git commit -m "chore: farm commit #$i at $TS"
+          done
+          git push origin ${{ env.MAIN_BRANCH }}
+
+  farm-issues:
+    needs: farm-commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apri e chiudi ${{ env.ISSUE_COUNT }} issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            for (let i = 1; i <= ${{ env.ISSUE_COUNT }}; i++) {
+              const title = `farm-issue ${new Date().toISOString()}`;
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title
+              });
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.data.number,
+                state: 'closed'
+              });
+            }
+
+  farm-prs:
+    needs: farm-issues
+    runs-on: ubuntu-latest
+    outputs:
+      branch: ${{ steps.set-branch.outputs.branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: true
+
+      - name: Crea branch e prepara PR
+        id: set-branch
+        run: |
+          TS=$(date +%s)
+          BR="farm-pr-${TS}"
+          git config user.name "${{ env.USER_NAME }}"
+          git config user.email "${{ env.USER_EMAIL }}"
+          git checkout -b "$BR"
+          echo "farm PR $BR" > ita/test.txt
+          git add ita/test.txt
+          git commit -m "chore: farm PR $BR"
+          git push origin "$BR"
+          echo "::set-output name=branch::$BR"
+
+      - name: Apri e mergia PR, poi cancella il branch
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const BR = '${{ needs.farm-prs.outputs.branch }}';
+            const pr = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: `${context.repo.owner}:${BR}`,
+              base: '${{ env.MAIN_BRANCH }}',
+              title: `farm-pr ${BR}`
+            });
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.data.number,
+              merge_method: 'merge'
+            });
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `heads/${BR}`
+            });
+
+  farm-wiki:
+    needs: farm-prs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Wiki
+        uses: devops-infra/action-wiki@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Aggiorna Wiki Home.md
+        run: |
+          git config user.name "${{ env.USER_NAME }}"
+          git config user.email "${{ env.USER_EMAIL }}"
+          echo "- farm wiki at $(date -u)" > docs/Home.md
+          git add docs/Home.md
+          git commit -m "chore: farm wiki $(date -u)"
+          git push
+
+  farm-release:
+    needs: farm-wiki
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Crea tag e release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "farm-$(date +'%Y%m%d%H%M')"
+          name: "Farm release $(date -u)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  farm-comments:
+    needs: farm-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Commenta sull’ultima issue
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 1,
+              sort: 'created',
+              direction: 'desc'
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issues.data[0].number,
+              body: `farm-comment at ${new Date().toISOString()}`
+            });
