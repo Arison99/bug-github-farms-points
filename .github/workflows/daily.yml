@@ -1,127 +1,43 @@
-name: Daily Farm Points
+name: daily
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
-  packages: write
 
 on:
   schedule:
-    - cron: '0 0 * * *'    # ogni giorno a mezzanotte UTC
+    - cron: '0 0,12 * * *'   # ogni giorno a 00:00 e 12:00 UTC - for 10 min */10 * * * *
   workflow_dispatch:
 
 jobs:
-  farm-points:
+  two-commits:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo principale
+      - name: Checkout
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.PAT_BOC }}
           fetch-depth: 0
 
-      - name: Configura Git per bocaletto-luca
+      - name: Configura Git
         run: |
           git config user.name "bocaletto-luca"
-          git config user.email "bocalettoluca82@gmail.com"
+          git config user.email "${{ secrets.BOCA_EMAIL }}"
 
       - name: Imposta timestamp
-        run: echo "TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
+        run: echo "TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
 
-      - name: Commit src/daily.txt
+      - name: Commit src/test.txt
         run: |
           mkdir -p src
-          echo "daily at $TIMESTAMP" >> src/daily.txt
-          git add src/daily.txt
-          git commit --allow-empty -m "chore: daily commit at $TIMESTAMP"
-          git push origin main
+          echo "farm at $TS" > src/test.txt
+          git add src/test.txt
+          git commit --allow-empty -m "chore: update test.txt at $TS"
 
-      - name: Apri e chiudi un’issue
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.PAT_BOC }}
-          script: |
-            const issue = await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `daily-issue ${new Date().toISOString()}`
-            });
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue.data.number,
-              state: "closed"
-            });
-
-      - name: Crea e merge una PR
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.PAT_BOC }}
-          script: |
-            const branch = `daily-pr-${Date.now()}`;
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/heads/${branch}`,
-              sha: context.sha
-            });
-            const pr = await github.rest.pulls.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: branch,
-              base: "main",
-              title: `daily-pr ${branch}`
-            });
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.data.number,
-              merge_method: "merge"
-            });
-            await github.rest.git.deleteRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `heads/${branch}`
-            });
-
-      - name: Commenta sull’ultima issue
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.PAT_BOC }}
-          script: |
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              per_page: 1,
-              sort: "created",
-              direction: "desc"
-            });
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issues.data[0].number,
-              body: `daily-comment at ${new Date().toISOString()}`
-            });
-
-      - name: Aggiorna Wiki via git clone
+      - name: Commit src/test2.txt
         run: |
-          git clone https://x-access-token:${{ secrets.PAT_BOC }}@github.com/${{ github.repository }}.wiki.git wiki
-          cd wiki
-          echo "- daily wiki at $TIMESTAMP" > Home.md
-          git add Home.md
-          git commit -m "chore: daily wiki $TIMESTAMP"
-          git push origin master
+          echo "farm at $TS" > src/test2.txt
+          git add src/test2.txt
+          git commit --allow-empty -m "chore: update test2.txt at $TS"
 
-      - name: Crea tag e release
-        id: set-tag
-        run: echo "TAG=$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
-
-      - name: Crea GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: "daily-${{ env.TAG }}"
-          name: "Daily release ${{ env.TAG }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_BOC }}
+      - name: Push su main
+        run: git push origin main

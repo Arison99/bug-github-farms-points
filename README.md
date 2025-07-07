@@ -81,4 +81,4 @@ I’ve also contacted GitHub Security (security@github.com) with this Proof of C
 Thanks for checking this out! If you have questions or improvements, open an issue here or reach out on Twitter @bocaletto_luca. Let’s work together to keep GitHub honest—and fun.
 
 Happy farming (but only for demonstration purposes)!  
-Luca (bocaletto-luca)  
+Luca (@bocaletto-luca)  
