@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: '0 0,12 * * *'   # ogni giorno a 00:00 e 12:00 UTC - for 10 min */10 * * * *
+    - cron: '0 0,8,16 * * *'   # ogni giorno a 00:00, 08:00 e 16:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -20,8 +20,8 @@ jobs:
 
       - name: Configura Git
         run: |
-          git config user.name "bocaletto-luca"
-          git config user.email "${{ secrets.BOCA_EMAIL }}"
+          git config user.name "Arison99"
+          git config user.email "Arison99@users.noreply.github.com"
 
       - name: Imposta timestamp
         run: echo "TS=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_ENV
@@ -31,13 +31,21 @@ jobs:
           mkdir -p src
           echo "farm at $TS" > src/test.txt
           git add src/test.txt
-          git commit --allow-empty -m "chore: update test.txt at $TS"
+          for i in {1..20}; do
+            echo "farm commit $i at $TS" >> src/test.txt
+            git add src/test.txt
+            git commit --allow-empty -m "chore: update test.txt commit $i at $TS"
+          done
 
       - name: Commit src/test2.txt
         run: |
           echo "farm at $TS" > src/test2.txt
           git add src/test2.txt
-          git commit --allow-empty -m "chore: update test2.txt at $TS"
+          for i in {1..20}; do
+            echo "farm commit $i at $TS" >> src/test2.txt
+            git add src/test2.txt
+            git commit --allow-empty -m "chore: update test2.txt commit $i at $TS"
+          done
 
       - name: Push su main
         run: git push origin main
