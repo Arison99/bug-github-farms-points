@@ -18,11 +18,11 @@ defaults:
 env:
   REPO: ${{ github.repository }}
   MAIN_BRANCH: main
-  COMMIT_COUNT: 6
+  COMMIT_COUNT: 24
   ISSUE_COUNT: 1
   PR_PER_RUN: 1
-  USER_NAME: UserName
-  USER_EMAIL: UserName@users.noreply.github.com
+  USER_NAME: Arison99
+  USER_EMAIL: Arison99@users.noreply.github.com
 
 on:
   schedule:
